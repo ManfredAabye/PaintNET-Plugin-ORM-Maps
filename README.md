@@ -866,14 +866,14 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("ORM Map Generator")]
 [assembly: AssemblyDescription("Paint.NET Plugin for OpenSim ORM Map Generation")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Your Company")]
+[assembly: AssemblyCompany("Manfred Aabye")]
 [assembly: AssemblyProduct("ORM Generator")]
-[assembly: AssemblyCopyright("Copyright © 2024")]
+[assembly: AssemblyCopyright("Copyright © 2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
 [assembly: ComVisible(false)]
-[assembly: Guid("YOUR-GUID-HERE")]
+[assembly: Guid("8d4a9b2c-1e8f-4a3d-b5c7-9d2e4f6a8b1c")]
 
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
