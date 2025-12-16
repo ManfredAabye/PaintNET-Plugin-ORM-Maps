@@ -234,7 +234,7 @@ ORMGenerator/
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{YOUR-GUID-HERE}</ProjectGuid>
+    <ProjectGuid>{8d4a9b2c-1e8f-4a3d-b5c7-9d2e4f6a8b1c}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ORMGenerator</RootNamespace>
