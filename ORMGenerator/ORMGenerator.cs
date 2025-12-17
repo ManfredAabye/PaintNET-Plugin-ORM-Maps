@@ -34,6 +34,7 @@ namespace ORMGenerator
         private MapSource aoSource;
         private bool previewMode;
         private MaterialPreset materialPreset;
+        private OutputMode outputMode;
 
         public enum MapSource
         {
@@ -64,15 +65,22 @@ namespace ORMGenerator
             Paint
         }
 
+        public enum OutputMode
+        {
+            OcclusionOnly,
+            RoughnessOnly,
+            MetallicOnly,
+            CombinedORM
+        }
+
         public ORMGenerator()
             : base(
                 "ORM Map Generator", 
                 (System.Drawing.Image?)null, 
-                SubmenuNames.Render, 
+                "ORM", 
                 new EffectOptions() 
                 { 
-                    Flags = EffectFlags.Configurable,
-                    RenderingSchedule = EffectRenderingSchedule.None
+                    Flags = EffectFlags.Configurable
                 })
         {
         }
@@ -80,6 +88,17 @@ namespace ORMGenerator
         protected override PropertyCollection OnCreatePropertyCollection()
         {
             List<Property> props = new List<Property>();
+
+            // Output Mode
+            props.Add(new StaticListChoiceProperty("OutputMode", 
+                new object[] 
+                {
+                    OutputMode.OcclusionOnly,
+                    OutputMode.RoughnessOnly,
+                    OutputMode.MetallicOnly,
+                    OutputMode.CombinedORM
+                }, 
+                3)); // Default: CombinedORM
 
             // Material Presets
             props.Add(new StaticListChoiceProperty("MaterialPreset", 
@@ -147,7 +166,7 @@ namespace ORMGenerator
                     MapSource.Grayscale,
                     MapSource.CustomValue
                 }, 
-                0)); // Default: RedChannel
+                4)); // Default: Grayscale
             props.Add(new DoubleProperty("AmbientOcclusion", 1.0, 0.0, 1.0));
             props.Add(new BooleanProperty("InvertAO", false));
             
@@ -160,6 +179,12 @@ namespace ORMGenerator
         protected override ControlInfo OnCreateConfigUI(PropertyCollection props)
         {
             ControlInfo configUI = CreateDefaultConfigUI(props);
+
+            // Output Mode
+            configUI.SetPropertyControlValue("OutputMode", ControlInfoPropertyNames.DisplayName, "Output Mode");
+            configUI.SetPropertyControlValue("OutputMode", ControlInfoPropertyNames.Description,
+                "Wähle welcher Kanal generiert werden soll (für separate Ebenen) oder Combined für finale ORM Map");
+            configUI.SetPropertyControlType("OutputMode", PropertyControlType.DropDown);
 
             // Material Presets
             configUI.SetPropertyControlValue("MaterialPreset", ControlInfoPropertyNames.DisplayName, "Material Preset");
@@ -223,13 +248,22 @@ namespace ORMGenerator
                                                 RenderArgs dstArgs, 
                                                 RenderArgs srcArgs)
         {
-            // Material Preset zuerst laden
+            // Output Mode und Material Preset zuerst laden
+            this.outputMode = (OutputMode)newToken.GetProperty<StaticListChoiceProperty>("OutputMode").Value;
             this.materialPreset = (MaterialPreset)newToken.GetProperty<StaticListChoiceProperty>("MaterialPreset").Value;
             
-            // Werte aus UI lesen
-            this.roughness = newToken.GetProperty<DoubleProperty>("Roughness").Value;
-            this.metallic = newToken.GetProperty<DoubleProperty>("Metallic").Value;
-            this.ambientOcclusion = newToken.GetProperty<DoubleProperty>("AmbientOcclusion").Value;
+            // Preset-Werte zuerst anwenden, falls nicht Custom
+            if (this.materialPreset != MaterialPreset.Custom)
+            {
+                ApplyMaterialPreset();
+            }
+            else
+            {
+                // Nur bei Custom: Werte aus UI lesen
+                this.roughness = newToken.GetProperty<DoubleProperty>("Roughness").Value;
+                this.metallic = newToken.GetProperty<DoubleProperty>("Metallic").Value;
+                this.ambientOcclusion = newToken.GetProperty<DoubleProperty>("AmbientOcclusion").Value;
+            }
             
             this.useAutoDetection = newToken.GetProperty<BooleanProperty>("AutoDetection").Value;
             this.invertRoughness = newToken.GetProperty<BooleanProperty>("InvertRoughness").Value;
@@ -240,12 +274,6 @@ namespace ORMGenerator
             this.roughnessSource = (MapSource)newToken.GetProperty<StaticListChoiceProperty>("RoughnessSource").Value;
             this.metallicSource = (MapSource)newToken.GetProperty<StaticListChoiceProperty>("MetallicSource").Value;
             this.aoSource = (MapSource)newToken.GetProperty<StaticListChoiceProperty>("AOSource").Value;
-            
-            // Preset-Werte anwenden, falls nicht Custom
-            if (this.materialPreset != MaterialPreset.Custom)
-            {
-                ApplyMaterialPreset();
-            }
             
             this.sourceSurface = srcArgs.Surface;
 
@@ -278,49 +306,94 @@ namespace ORMGenerator
                     {
                         ColorBgra pixel = this.sourceSurface[x, y];
                         
-                        // Automatische Analyse
-                        float intensity = (float)pixel.GetIntensity();
+                        // Grayscale-Berechnung wie in PBR-Material-Maker
+                        int gray = (pixel.R + pixel.G + pixel.B) / 3;
+                        float intensity = gray / 255f;
                         
                         // Manuelle Sättigungsberechnung
                         float max = Math.Max(Math.Max((float)pixel.R, (float)pixel.G), (float)pixel.B) / 255f;
                         float min = Math.Min(Math.Min((float)pixel.R, (float)pixel.G), (float)pixel.B) / 255f;
                         float saturation = max > 0 ? (max - min) / max : 0f;
                         
-                        // Roughness: Dunkle Bereiche = rau, Helle = glatt
-                        byte rValue = (byte)((1.0f - intensity) * 255f);
+                        // Roughness: Basiert auf Grayscale * Strength (wie PBR-Material-Maker)
+                        byte rValue = (byte)(gray * this.roughness);
                         
-                        // Metallic: Niedrige Sättigung = potenziell metallisch
+                        // Metallic: Threshold-basiert - niedrige Sättigung + Helligkeits-Schwelle
                         byte mValue = 0;
-                        if (saturation < 0.3f)
+                        int metallicThreshold = (int)(this.metallic * 255);
+                        if (saturation < 0.3f && gray > metallicThreshold)
                         {
-                            // Grautöne sind potenziell metallisch
-                            mValue = (byte)((1.0f - (saturation * 3.0f)) * 255f);
+                            // Grautöne über Threshold sind metallisch
+                            mValue = 255;
                         }
                         
-                        // Ambient Occlusion: Rot-Kanal oder Intensität
-                        byte aoValue = pixel.R;
+                        // Ambient Occlusion: Invertierte Helligkeit (wie PBR-Material-Maker)
+                        byte aoValue = (byte)(255 - gray);
                         
                         ColorBgra outputPixel;
                         
-                        if (this.previewMode)
+                        // Output basierend auf gewähltem Modus
+                        switch (this.outputMode)
                         {
-                            // Preview: Zeige ORM als Farbbild
-                            outputPixel = ColorBgra.FromBgra(
-                                (byte)(aoValue * 0.5),  // Blau für AO
-                                mValue,                 // Grün für Metallic
-                                rValue,                 // Rot für Roughness
-                                pixel.A
-                            );
-                        }
-                        else
-                        {
-                            // Export: ORM Map im korrekten Format
-                            outputPixel = ColorBgra.FromBgra(
-                                aoValue,
-                                mValue,
-                                rValue,
-                                pixel.A
-                            );
+                            case OutputMode.OcclusionOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: AO in Rot
+                                    outputPixel = ColorBgra.FromBgra(0, 0, aoValue, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: AO als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(aoValue, aoValue, aoValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.RoughnessOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: Roughness in Grün
+                                    outputPixel = ColorBgra.FromBgra(0, rValue, 0, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: Roughness als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(rValue, rValue, rValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.MetallicOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: Metallic in Blau
+                                    outputPixel = ColorBgra.FromBgra(mValue, 0, 0, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: Metallic als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(mValue, mValue, mValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.CombinedORM:
+                            default:
+                                if (this.previewMode)
+                                {
+                                    // Preview: Zeige ORM als Farbbild
+                                    outputPixel = ColorBgra.FromBgra(
+                                        (byte)(aoValue * 0.5),  // Blau für AO
+                                        mValue,                 // Grün für Metallic
+                                        rValue,                 // Rot für Roughness
+                                        pixel.A
+                                    );
+                                }
+                                else
+                                {
+                                    // Export: ORM Map im korrekten Format
+                                    outputPixel = ColorBgra.FromBgra(
+                                        aoValue,
+                                        mValue,
+                                        rValue,
+                                        pixel.A
+                                    );
+                                }
+                                break;
                         }
                         
                         this.DstArgs.Surface[x, y] = outputPixel;
@@ -341,39 +414,111 @@ namespace ORMGenerator
                     {
                         ColorBgra pixel = this.sourceSurface[x, y];
                         
-                        // Roughness berechnen
-                        byte rValue = GetChannelValue(pixel, this.roughnessSource, this.roughness);
-                        if (this.invertRoughness) rValue = (byte)(255 - rValue);
+                        // Grayscale-Berechnung wie in PBR-Material-Maker
+                        int gray = (pixel.R + pixel.G + pixel.B) / 3;
                         
-                        // Metallic berechnen
-                        byte mValue = GetChannelValue(pixel, this.metallicSource, this.metallic);
-                        if (this.invertMetallic) mValue = (byte)(255 - mValue);
-                        
-                        // AO berechnen
-                        byte aoValue = GetChannelValue(pixel, this.aoSource, this.ambientOcclusion);
-                        if (this.invertAO) aoValue = (byte)(255 - aoValue);
-                        
-                        ColorBgra outputPixel;
-                        
-                        if (this.previewMode)
+                        // Roughness: Grayscale * effectStrength mit optionaler Invertierung
+                        byte rValue;
+                        if (this.roughnessSource == MapSource.Grayscale)
                         {
-                            // Preview Modus
-                            outputPixel = ColorBgra.FromBgra(
-                                (byte)(aoValue * 0.5),
-                                mValue,
-                                rValue,
-                                pixel.A
-                            );
+                            int roughValue = (int)(gray * this.roughness);
+                            rValue = this.invertRoughness ? (byte)(255 - roughValue) : (byte)roughValue;
                         }
                         else
                         {
-                            // Export Modus - ORM Format: R=Occlusion, G=Roughness, B=Metallic
-                            outputPixel = ColorBgra.FromBgra(
-                                mValue,     // B = Metallic
-                                rValue,     // G = Roughness
-                                aoValue,    // R = Occlusion (AO)
-                                pixel.A
-                            );
+                            rValue = GetChannelValue(pixel, this.roughnessSource, this.roughness);
+                            if (this.invertRoughness) rValue = (byte)(255 - rValue);
+                        }
+                        
+                        // Metallic: Threshold-basiert wie in PBR-Material-Maker
+                        byte mValue;
+                        if (this.metallicSource == MapSource.Grayscale)
+                        {
+                            int threshold = (int)(this.metallic * 255); // metallic als Threshold 0-255
+                            mValue = gray > threshold ? (byte)255 : (byte)0;
+                        }
+                        else
+                        {
+                            mValue = GetChannelValue(pixel, this.metallicSource, this.metallic);
+                            if (this.invertMetallic) mValue = (byte)(255 - mValue);
+                        }
+                        
+                        // AO (Occlusion): Invertierte Helligkeit wie in PBR-Material-Maker
+                        byte aoValue;
+                        if (this.aoSource == MapSource.Grayscale)
+                        {
+                            aoValue = (byte)(255 - gray); // Invertiert: dunkle Bereiche = hohe Occlusion
+                        }
+                        else
+                        {
+                            aoValue = GetChannelValue(pixel, this.aoSource, this.ambientOcclusion);
+                            if (this.invertAO) aoValue = (byte)(255 - aoValue);
+                        }
+                        
+                        ColorBgra outputPixel;
+                        
+                        // Output basierend auf gewähltem Modus
+                        switch (this.outputMode)
+                        {
+                            case OutputMode.OcclusionOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: AO in Rot
+                                    outputPixel = ColorBgra.FromBgra(0, 0, aoValue, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: AO als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(aoValue, aoValue, aoValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.RoughnessOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: Roughness in Grün
+                                    outputPixel = ColorBgra.FromBgra(0, rValue, 0, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: Roughness als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(rValue, rValue, rValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.MetallicOnly:
+                                if (this.previewMode)
+                                {
+                                    // Preview: Metallic in Blau
+                                    outputPixel = ColorBgra.FromBgra(mValue, 0, 0, pixel.A);
+                                }
+                                else
+                                {
+                                    // Export: Metallic als Grayscale
+                                    outputPixel = ColorBgra.FromBgra(mValue, mValue, mValue, pixel.A);
+                                }
+                                break;
+                            case OutputMode.CombinedORM:
+                            default:
+                                if (this.previewMode)
+                                {
+                                    // Preview Modus
+                                    outputPixel = ColorBgra.FromBgra(
+                                        (byte)(aoValue * 0.5),
+                                        mValue,
+                                        rValue,
+                                        pixel.A
+                                    );
+                                }
+                                else
+                                {
+                                    // Export Modus - ORM Format: R=Occlusion, G=Roughness, B=Metallic
+                                    outputPixel = ColorBgra.FromBgra(
+                                        mValue,     // B = Metallic
+                                        rValue,     // G = Roughness
+                                        aoValue,    // R = Occlusion (AO)
+                                        pixel.A
+                                    );
+                                }
+                                break;
                         }
                         
                         this.DstArgs.Surface[x, y] = outputPixel;

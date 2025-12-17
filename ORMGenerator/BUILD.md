@@ -6,15 +6,17 @@ Dieses Verzeichnis enthält das fertige Paint.NET Plugin für ORM Map Generierun
 
 ## Kompilierung
 
-### Voraussetzungen:
+### Voraussetzungen
+
 - Visual Studio 2019 oder neuer
 - .NET Framework 4.7.2 oder höher
 - Paint.NET installiert (bevorzugt unter `C:\Program Files\paint.net\`)
 
-### Schritte:
+### Schritte
 
 1. **Öffne die Solution in Visual Studio:**
-   ```
+
+   ```bash
    Öffne ORMGenerator.csproj in Visual Studio
    ```
 
@@ -31,7 +33,8 @@ Dieses Verzeichnis enthält das fertige Paint.NET Plugin für ORM Map Generierun
 4. **DLL installieren:**
    - Die kompilierte DLL wird automatisch nach `C:\Program Files\paint.net\Effects\` kopiert
    - Alternativ manuell kopieren:
-     ```
+
+     ```bash
      Kopiere: ORMGenerator\bin\Release\ORMGenerator.dll
      Nach: C:\Program Files\paint.net\Effects\
      ```
@@ -47,19 +50,22 @@ Dieses Verzeichnis enthält das fertige Paint.NET Plugin für ORM Map Generierun
 
 ## Features
 
-### Material Presets:
+### Material Presets
+
 - **Metalle:** Polished Metal, Rough Metal, Brushed Metal
 - **Holz:** Wood, Rough Wood
 - **Stein:** Stone, Concrete
 - **Kunststoffe:** Plastic, Rubber
 - **Sonstiges:** Glass, Fabric, Leather, Ceramic, Paint
 
-### Modi:
+### Modi
+
 - **Auto Detection:** Automatische ORM-Generierung aus Bild
 - **Manual Mode:** Volle Kontrolle über alle Parameter
 - **Preview Mode:** Vorschau der ORM Map
 
-### ORM Format:
+### ORM Format
+
 - **R-Kanal:** Occlusion (Ambient Occlusion)
 - **G-Kanal:** Roughness
 - **B-Kanal:** Metallic
@@ -68,11 +74,13 @@ Dieses Verzeichnis enthält das fertige Paint.NET Plugin für ORM Map Generierun
 ## Fehlerbehebung
 
 **Plugin erscheint nicht in Paint.NET:**
+
 - Stelle sicher, dass Paint.NET neu gestartet wurde
 - Prüfe, ob die DLL im richtigen Ordner liegt
 - Prüfe Windows Event Viewer für Fehler
 
 **Kompilierungsfehler:**
+
 - Prüfe die Referenzpfade zu Paint.NET DLLs
 - Stelle sicher, dass .NET Framework 4.7.2 installiert ist
 
