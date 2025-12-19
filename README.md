@@ -124,46 +124,9 @@ Exportiert Magic Wand-Auswahlbereiche als Paint.NET SimpleGeometryShape XAML.
 **Version:** 1.0.0.0  
 **Kategorie:** ORM → SVG Generator
 
-Konvertiert Bilder in SVG-Vektorgrafiken.
+Konvertiert hervorgehobene Bereiche von Bildern in SVG-Vektorgrafiken.
 
 **Verwendung:** `Effekte → ORM → SVG Generator`
-
----
-
-### DHShapeMaker - Shape Editor
-
-**Version:** Portiert für Paint.NET 5.x  
-**Original:** Paint.NET 3.5 Plugin
-
-Umfassender vektorbasierter Shape-Editor mit automatischer Konturerkennung.
-
-**Features:**
-
-- Manuelle Punkt-basierte Form-Erstellung
-- Mehrere Linientypen:
-  - Lines (Gerade Linien)
-  - SmoothCubic (Glatte Bézier-Kurven)
-  - Smooth (Interpolierte Kurven)
-  - ClosedCurve (Geschlossene Kurven)
-- **Automatische Konturerkennung:**
-  - "Reading Contours" Menüeintrag
-  - Flood Fill mit Toleranz-Steuerung
-  - Moore-Neighbor Contour Tracing
-  - Douglas-Peucker Vereinfachung
-- XAML Export (SimpleGeometryShape Format)
-- Umfangreiche Bearbeitungswerkzeuge
-
-**Verwendung:** `Effekte → Advanced → ShapeMaker`
-
-**Reading Contours Workflow:**
-
-1. Öffne ein Bild
-2. Starte ShapeMaker
-3. Menü → Reading Contours
-4. Stelle Parameter ein:
-   - Toleranz (0-100%)
-   - Epsilon (Vereinfachung: 1-20)
-5. Kontur wird automatisch als Shape hinzugefügt
 
 ---
 
@@ -192,9 +155,6 @@ Copy-Item "ORMForm\bin\Release\ORMForm.dll" "C:\Program Files\paint.net\Effects\
 
 # ORMSVG
 Copy-Item "ORMSVG\bin\Release\ORMSVG.dll" "C:\Program Files\paint.net\Effects\"
-
-# DHShapeMaker
-Copy-Item "DHShapeMaker\bin\Debug\DHShapeMaker.dll" "C:\Program Files\paint.net\Effects\"
 ```
 
 ---
@@ -237,19 +197,16 @@ dotnet build -c Release
 4. **Emissive Map erstellen** (`ORMEmissive`)
    - Für leuchtende Bereiche
    - Mode wählen (Brightness/Saturation)
-5. **Optional: Shape Export** (`ORMForm` oder `DHShapeMaker`)
+5. **Optional: Shape Export** (`ORMForm`)
 
 ### Vector Shape Workflow
 
 1. **Bild in Paint.NET öffnen**
-2. **Automatisch mit DHShapeMaker:**
-   - ShapeMaker starten
-   - Reading Contours → Toleranz einstellen
-   - XAML exportieren
-3. **Oder mit ORMForm:**
+2. **ORMForm verwenden:**
    - ORM Form Exporter starten
-   - Toleranz einstellen
+   - Toleranz einstellen (0-100%)
    - Export XAML klicken
+   - XAML-Datei speichern
 
 ---
 
@@ -281,10 +238,11 @@ dotnet build -c Release
 
 ### Version 1.0.0.0 (Dezember 2025)
 
-- ✅ Alle Plugins auf Paint.NET 5.x portiert
-- ✅ DHShapeMaker: Automatische Konturerkennung hinzugefügt
-- ✅ ORMForm: Neues Plugin für XAML-Export erstellt
-- ✅ XAML-Format korrigiert (SimpleGeometryShape)
+- ✅ Alle ORM-Plugins auf Paint.NET 5.x portiert
+- ✅ ORMForm: XAML-Export für Shape-Daten
+- ✅ ORMHeightmap: Umfangreiche Terrain-Tools
+- ✅ ORMNormalmap: Normal Map Generation
+- ✅ ORMEmissive: Emissive Map Generation
 - ✅ .NET 9.0 Migration
 - ✅ Modern effects API implementation
 
@@ -313,9 +271,8 @@ Beiträge sind willkommen! Bitte erstelle Pull Requests oder Issues auf GitHub.
 
 ## ⚠️ Bekannte Einschränkungen
 
-- DHShapeMaker verwendet noch das veraltete Classic Effect System
-- Koordinaten-Normalisierung in DHShapeMaker noch nicht perfekt
 - Einige Brush-Modi in ORMHeightmap sind experimentell
+- ORMSVG-Funktionalität ist noch in Entwicklung
 
 ---
 
@@ -332,7 +289,6 @@ Beiträge sind willkommen! Bitte erstelle Pull Requests oder Issues auf GitHub.
 
 - Paint.NET Team für die großartige Software
 - Community für Feedback und Testing
-- Original DHShapeMaker Entwickler
 
 ---
 
