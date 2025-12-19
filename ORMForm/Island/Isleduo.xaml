@@ -1,0 +1,4 @@
+<ps:SimpleGeometryShape xmlns="clr-namespace:PaintDotNet.UI.Media;assembly=PaintDotNet.Framework"
+                        xmlns:ps="clr-namespace:PaintDotNet.Shapes;assembly=PaintDotNet.Framework"
+                        DisplayName="Contour"
+                        Geometry="F1 M 90,0L 107,3 L 104,18 L 119,29 L 128,19 L 130,4 L 135,0 L 144,18 L 143,32 L 163,62 L 162,79 L 150,97 L 144,100 L 126,121 L 120,120 L 112,125 L 106,121 L 101,124 L 92,120 L 92,112 L 83,107 L 91,99 L 82,103 L 80,107 L 77,105 L 76,97 L 69,92 L 54,93 L 8,107 L 0,104 L 6,92 L 4,74 L 8,49 L 40,37 L 47,26 L 65,12 L 69,11 L 77,17 L 82,7 L 90,4 L 90,1 Z" />
