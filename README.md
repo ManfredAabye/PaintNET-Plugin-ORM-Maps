@@ -87,11 +87,11 @@ Konvertiert Heightmaps oder Graustufenbilder in Normal Maps für 3D-Rendering.
 **Version:** 1.0.0.0  
 **Kategorie:** ORM → ORM Form Exporter
 
-Exportiert Magic Wand-Auswahlbereiche als Paint.NET SimpleGeometryShape XAML.
+Exportiert Zauberstab-Auswahlbereiche als Paint.NET SimpleGeometryShape XAML.
 
 **Features:**
 
-- Magic Wand Selection mit Toleranz-Steuerung (0-100%)
+- Zauberstab Selection mit Toleranz-Steuerung (0-100%)
 - Automatische Konturerkennung
 - Douglas-Peucker Polygonvereinfachung
 - Echzeit-Vorschau
