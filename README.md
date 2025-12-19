@@ -1,6 +1,6 @@
 # PaintnetORM - PBR Material Creation Suite for Paint.NET
 
-Eine umfassende Plugin-Suite für Paint.NET 5.x zur Erstellung von PBR (Physically Based Rendering) Materialien, insbesondere ORM (Occlusion, Roughness, Metallic) Maps und verwandten Texturen.
+Eine umfassende Plugin-Suite für Paint.NET 5.x.x zur Erstellung von PBR (Physically Based Rendering) Materialien, insbesondere ORM (Occlusion, Roughness, Metallic) Maps und verwandten Texturen.
 
 ![Paint.NET Version](https://img.shields.io/badge/Paint.NET-5.x-blue)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
