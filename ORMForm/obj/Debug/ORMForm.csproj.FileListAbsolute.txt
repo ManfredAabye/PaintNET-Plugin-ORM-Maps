@@ -1,0 +1,10 @@
+D:\PaintnetORM\ORMForm\obj\Debug\ORMForm.csproj.AssemblyReference.cache
+D:\PaintnetORM\ORMForm\obj\Debug\ORMForm.GeneratedMSBuildEditorConfig.editorconfig
+D:\PaintnetORM\ORMForm\obj\Debug\ORMForm.csproj.CoreCompileInputs.cache
+D:\PaintnetORM\ORMForm\bin\Debug\ORMForm.deps.json
+D:\PaintnetORM\ORMForm\bin\Debug\ORMForm.dll
+D:\PaintnetORM\ORMForm\bin\Debug\ORMForm.pdb
+D:\PaintnetORM\ORMForm\obj\Debug\ORMForm.dll
+D:\PaintnetORM\ORMForm\obj\Debug\refint\ORMForm.dll
+D:\PaintnetORM\ORMForm\obj\Debug\ORMForm.pdb
+D:\PaintnetORM\ORMForm\obj\Debug\ref\ORMForm.dll
