@@ -13,28 +13,57 @@ namespace ORMTerrainGeneratorEffect
         public string Author => "ManfredAabye";
         public string Copyright => "Copyright © 2025";
         public string DisplayName => "Terrain Heightmap Generator";
-        public Version Version => new Version(1, 0, 0, 0);
+        public Version Version => new Version(1, 2, 0, 0);
         public Uri WebsiteUri => new Uri("https://github.com/ManfredAabye");
     }
 
     [PluginSupportInfo(typeof(PluginSupportInfo))]
     public class ORMTerrainGenerator : PropertyBasedEffect
     {
+        // Island shape types
+        private enum IslandShape
+        {
+            Normal,              // Organische runde Form (Standard)
+            Filled               // Gefüllte Form ohne Wasser
+        }
+
         // Property names
         private enum PropertyNames
         {
+            IslandShape,
             RandomSeed,
             IslandSize,
             MountainIntensity,
             ErosionIterations,
-            RiverDensity,
             NoiseScale,
-            NoiseOctaves
+            NoiseOctaves,
+            WaterLevel,
+            BeachWidth,
+            CoastlineRoughness,
+            MountainCount,
+            ValleyDepth,
+            LakeCount,
+            TerrainType,
+            Persistence
         }
 
         // Heightmap data
         private double[,]? heightmap;
+        private int currentIslandShape;
         private int currentSeed;
+        private double currentIslandSize;
+        private double currentMountainIntensity;
+        private int currentErosionIterations;
+        private double currentNoiseScale;
+        private int currentNoiseOctaves;
+        private double currentWaterLevel;
+        private double currentBeachWidth;
+        private double currentCoastlineRoughness;
+        private int currentMountainCount;
+        private double currentValleyDepth;
+        private int currentLakeCount;
+        private int currentTerrainType;
+        private double currentPersistence;
 
         // Constructor
         public ORMTerrainGenerator()
@@ -50,13 +79,21 @@ namespace ORMTerrainGeneratorEffect
         {
             List<Property> props = new List<Property>
             {
+                new StaticListChoiceProperty(PropertyNames.IslandShape, new object[] { IslandShape.Normal, IslandShape.Filled }, 0, false),
                 new Int32Property(PropertyNames.RandomSeed, 0, 0, 99999),
                 new DoubleProperty(PropertyNames.IslandSize, 0.4, 0.2, 0.8),
                 new DoubleProperty(PropertyNames.MountainIntensity, 0.5, 0.0, 1.0),
                 new Int32Property(PropertyNames.ErosionIterations, 3, 0, 10),
-                new DoubleProperty(PropertyNames.RiverDensity, 0.3, 0.0, 1.0),
                 new DoubleProperty(PropertyNames.NoiseScale, 4.0, 1.0, 10.0),
-                new Int32Property(PropertyNames.NoiseOctaves, 4, 1, 8)
+                new Int32Property(PropertyNames.NoiseOctaves, 4, 1, 8),
+                new DoubleProperty(PropertyNames.WaterLevel, 40.0, 0.0, 100.0),
+                new DoubleProperty(PropertyNames.BeachWidth, 0.1, 0.0, 0.3),
+                new DoubleProperty(PropertyNames.CoastlineRoughness, 0.25, 0.0, 1.0),
+                new Int32Property(PropertyNames.MountainCount, 5, 0, 20),
+                new DoubleProperty(PropertyNames.ValleyDepth, 0.3, 0.0, 1.0),
+                new Int32Property(PropertyNames.LakeCount, 5, 0, 20),
+                new Int32Property(PropertyNames.TerrainType, 0, 0, 3),
+                new DoubleProperty(PropertyNames.Persistence, 0.5, 0.2, 0.9)
             };
 
             return new PropertyCollection(props);
@@ -66,6 +103,12 @@ namespace ORMTerrainGeneratorEffect
         protected override ControlInfo OnCreateConfigUI(PropertyCollection props)
         {
             ControlInfo configUI = CreateDefaultConfigUI(props);
+
+            configUI.SetPropertyControlValue(PropertyNames.IslandShape, ControlInfoPropertyNames.DisplayName, "Inselform");
+            configUI.SetPropertyControlValue(PropertyNames.IslandShape, ControlInfoPropertyNames.Description, "Form der Insel: Normal oder Gefüllt");
+            PropertyControlInfo islandShapeControl = configUI.FindControlForPropertyName(PropertyNames.IslandShape);
+            islandShapeControl.SetValueDisplayName(IslandShape.Normal, "Normal");
+            islandShapeControl.SetValueDisplayName(IslandShape.Filled, "Gefüllt");
 
             configUI.SetPropertyControlValue(PropertyNames.RandomSeed, ControlInfoPropertyNames.DisplayName, "Zufalls-Seed");
             configUI.SetPropertyControlValue(PropertyNames.RandomSeed, ControlInfoPropertyNames.Description, "Seed für Zufallsgenerierung (0 = zufällig)");
@@ -85,12 +128,6 @@ namespace ORMTerrainGeneratorEffect
             configUI.SetPropertyControlValue(PropertyNames.ErosionIterations, ControlInfoPropertyNames.DisplayName, "Erosions-Iterationen");
             configUI.SetPropertyControlValue(PropertyNames.ErosionIterations, ControlInfoPropertyNames.Description, "Anzahl der Erosions-Durchgänge für sanftere Übergänge");
 
-            configUI.SetPropertyControlValue(PropertyNames.RiverDensity, ControlInfoPropertyNames.DisplayName, "Fluss-Dichte");
-            configUI.SetPropertyControlValue(PropertyNames.RiverDensity, ControlInfoPropertyNames.Description, "Häufigkeit von Flüssen und Seen");
-            configUI.SetPropertyControlValue(PropertyNames.RiverDensity, ControlInfoPropertyNames.SliderLargeChange, 0.1);
-            configUI.SetPropertyControlValue(PropertyNames.RiverDensity, ControlInfoPropertyNames.SliderSmallChange, 0.01);
-            configUI.SetPropertyControlValue(PropertyNames.RiverDensity, ControlInfoPropertyNames.UpDownIncrement, 0.01);
-
             configUI.SetPropertyControlValue(PropertyNames.NoiseScale, ControlInfoPropertyNames.DisplayName, "Rausch-Skalierung");
             configUI.SetPropertyControlValue(PropertyNames.NoiseScale, ControlInfoPropertyNames.Description, "Skalierung des Perlin-Noise (höher = feiner)");
             configUI.SetPropertyControlValue(PropertyNames.NoiseScale, ControlInfoPropertyNames.SliderLargeChange, 1.0);
@@ -100,6 +137,46 @@ namespace ORMTerrainGeneratorEffect
             configUI.SetPropertyControlValue(PropertyNames.NoiseOctaves, ControlInfoPropertyNames.DisplayName, "Rausch-Oktaven");
             configUI.SetPropertyControlValue(PropertyNames.NoiseOctaves, ControlInfoPropertyNames.Description, "Anzahl der Perlin-Noise Schichten");
 
+            configUI.SetPropertyControlValue(PropertyNames.WaterLevel, ControlInfoPropertyNames.DisplayName, "Wasserhöhe (RGB)");
+            configUI.SetPropertyControlValue(PropertyNames.WaterLevel, ControlInfoPropertyNames.Description, "RGB-Wert für Wasseroberfläche (Standard: 40 = 0m)");
+            configUI.SetPropertyControlValue(PropertyNames.WaterLevel, ControlInfoPropertyNames.SliderLargeChange, 10.0);
+            configUI.SetPropertyControlValue(PropertyNames.WaterLevel, ControlInfoPropertyNames.SliderSmallChange, 1.0);
+            configUI.SetPropertyControlValue(PropertyNames.WaterLevel, ControlInfoPropertyNames.UpDownIncrement, 1.0);
+
+            configUI.SetPropertyControlValue(PropertyNames.BeachWidth, ControlInfoPropertyNames.DisplayName, "Strandbreite");
+            configUI.SetPropertyControlValue(PropertyNames.BeachWidth, ControlInfoPropertyNames.Description, "Breite des Strandbereichs an der Küste");
+            configUI.SetPropertyControlValue(PropertyNames.BeachWidth, ControlInfoPropertyNames.SliderLargeChange, 0.05);
+            configUI.SetPropertyControlValue(PropertyNames.BeachWidth, ControlInfoPropertyNames.SliderSmallChange, 0.01);
+            configUI.SetPropertyControlValue(PropertyNames.BeachWidth, ControlInfoPropertyNames.UpDownIncrement, 0.01);
+
+            configUI.SetPropertyControlValue(PropertyNames.CoastlineRoughness, ControlInfoPropertyNames.DisplayName, "Küsten-Rauheit");
+            configUI.SetPropertyControlValue(PropertyNames.CoastlineRoughness, ControlInfoPropertyNames.Description, "Wie zerklüftet die Küstenlinie ist");
+            configUI.SetPropertyControlValue(PropertyNames.CoastlineRoughness, ControlInfoPropertyNames.SliderLargeChange, 0.1);
+            configUI.SetPropertyControlValue(PropertyNames.CoastlineRoughness, ControlInfoPropertyNames.SliderSmallChange, 0.01);
+            configUI.SetPropertyControlValue(PropertyNames.CoastlineRoughness, ControlInfoPropertyNames.UpDownIncrement, 0.01);
+
+            configUI.SetPropertyControlValue(PropertyNames.MountainCount, ControlInfoPropertyNames.DisplayName, "Anzahl Berge");
+            configUI.SetPropertyControlValue(PropertyNames.MountainCount, ControlInfoPropertyNames.Description, "Anzahl der Bergkuppen auf der Insel");
+
+            configUI.SetPropertyControlValue(PropertyNames.ValleyDepth, ControlInfoPropertyNames.DisplayName, "Taltiefe");
+            configUI.SetPropertyControlValue(PropertyNames.ValleyDepth, ControlInfoPropertyNames.Description, "Wie tief die Täler zwischen Bergen sind");
+            configUI.SetPropertyControlValue(PropertyNames.ValleyDepth, ControlInfoPropertyNames.SliderLargeChange, 0.1);
+            configUI.SetPropertyControlValue(PropertyNames.ValleyDepth, ControlInfoPropertyNames.SliderSmallChange, 0.01);
+            configUI.SetPropertyControlValue(PropertyNames.ValleyDepth, ControlInfoPropertyNames.UpDownIncrement, 0.01);
+
+            configUI.SetPropertyControlValue(PropertyNames.LakeCount, ControlInfoPropertyNames.DisplayName, "Anzahl Seen");
+            configUI.SetPropertyControlValue(PropertyNames.LakeCount, ControlInfoPropertyNames.Description, "Anzahl der Seen auf der Insel");
+
+            configUI.SetPropertyControlValue(PropertyNames.TerrainType, ControlInfoPropertyNames.DisplayName, "Terrain-Typ");
+            configUI.SetPropertyControlValue(PropertyNames.TerrainType, ControlInfoPropertyNames.Description, "0=Organisch, 1=Gebirgig, 2=Flach, 3=Archipel");
+            configUI.SetPropertyControlType(PropertyNames.TerrainType, PropertyControlType.Slider);
+
+            configUI.SetPropertyControlValue(PropertyNames.Persistence, ControlInfoPropertyNames.DisplayName, "Persistenz");
+            configUI.SetPropertyControlValue(PropertyNames.Persistence, ControlInfoPropertyNames.Description, "Rauheit des Terrains (höher = rauer)");
+            configUI.SetPropertyControlValue(PropertyNames.Persistence, ControlInfoPropertyNames.SliderLargeChange, 0.1);
+            configUI.SetPropertyControlValue(PropertyNames.Persistence, ControlInfoPropertyNames.SliderSmallChange, 0.01);
+            configUI.SetPropertyControlValue(PropertyNames.Persistence, ControlInfoPropertyNames.UpDownIncrement, 0.01);
+
             return configUI;
         }
 
@@ -107,13 +184,21 @@ namespace ORMTerrainGeneratorEffect
         protected override void OnSetRenderInfo(PropertyBasedEffectConfigToken newToken, RenderArgs dstArgs, RenderArgs srcArgs)
         {
             // Get parameters
+            int islandShape = (int)newToken.GetProperty<StaticListChoiceProperty>(PropertyNames.IslandShape)!.Value;
             int seed = newToken.GetProperty<Int32Property>(PropertyNames.RandomSeed)!.Value;
             double islandSize = newToken.GetProperty<DoubleProperty>(PropertyNames.IslandSize)!.Value;
             double mountainIntensity = newToken.GetProperty<DoubleProperty>(PropertyNames.MountainIntensity)!.Value;
             int erosionIterations = newToken.GetProperty<Int32Property>(PropertyNames.ErosionIterations)!.Value;
-            double riverDensity = newToken.GetProperty<DoubleProperty>(PropertyNames.RiverDensity)!.Value;
             double noiseScale = newToken.GetProperty<DoubleProperty>(PropertyNames.NoiseScale)!.Value;
             int noiseOctaves = newToken.GetProperty<Int32Property>(PropertyNames.NoiseOctaves)!.Value;
+            double waterLevel = newToken.GetProperty<DoubleProperty>(PropertyNames.WaterLevel)!.Value;
+            double beachWidth = newToken.GetProperty<DoubleProperty>(PropertyNames.BeachWidth)!.Value;
+            double coastlineRoughness = newToken.GetProperty<DoubleProperty>(PropertyNames.CoastlineRoughness)!.Value;
+            int mountainCount = newToken.GetProperty<Int32Property>(PropertyNames.MountainCount)!.Value;
+            double valleyDepth = newToken.GetProperty<DoubleProperty>(PropertyNames.ValleyDepth)!.Value;
+            int lakeCount = newToken.GetProperty<Int32Property>(PropertyNames.LakeCount)!.Value;
+            int terrainType = newToken.GetProperty<Int32Property>(PropertyNames.TerrainType)!.Value;
+            double persistence = newToken.GetProperty<DoubleProperty>(PropertyNames.Persistence)!.Value;
 
             // Use random seed if 0
             if (seed == 0)
@@ -121,13 +206,48 @@ namespace ORMTerrainGeneratorEffect
                 seed = new Random().Next(1, 99999);
             }
 
-            // Generate heightmap if needed
-            if (heightmap == null || currentSeed != seed)
+            // Check if any parameter has changed - if so, regenerate heightmap for real-time preview
+            bool parametersChanged = heightmap == null ||
+                                   currentIslandShape != islandShape ||
+                                   currentSeed != seed ||
+                                   Math.Abs(currentIslandSize - islandSize) > 0.001 ||
+                                   Math.Abs(currentMountainIntensity - mountainIntensity) > 0.001 ||
+                                   currentErosionIterations != erosionIterations ||
+                                   Math.Abs(currentNoiseScale - noiseScale) > 0.001 ||
+                                   currentNoiseOctaves != noiseOctaves ||
+                                   Math.Abs(currentWaterLevel - waterLevel) > 0.001 ||
+                                   Math.Abs(currentBeachWidth - beachWidth) > 0.001 ||
+                                   Math.Abs(currentCoastlineRoughness - coastlineRoughness) > 0.001 ||
+                                   currentMountainCount != mountainCount ||
+                                   Math.Abs(currentValleyDepth - valleyDepth) > 0.001 ||
+                                   currentLakeCount != lakeCount ||
+                                   currentTerrainType != terrainType ||
+                                   Math.Abs(currentPersistence - persistence) > 0.001;
+
+            // Generate heightmap if parameters changed
+            if (parametersChanged)
             {
+                currentIslandShape = islandShape;
                 currentSeed = seed;
+                currentIslandSize = islandSize;
+                currentMountainIntensity = mountainIntensity;
+                currentErosionIterations = erosionIterations;
+                currentNoiseScale = noiseScale;
+                currentNoiseOctaves = noiseOctaves;
+                currentWaterLevel = waterLevel;
+                currentBeachWidth = beachWidth;
+                currentCoastlineRoughness = coastlineRoughness;
+                currentMountainCount = mountainCount;
+                currentValleyDepth = valleyDepth;
+                currentLakeCount = lakeCount;
+                currentTerrainType = terrainType;
+                currentPersistence = persistence;
+                
                 int size = Math.Min(dstArgs.Width, dstArgs.Height);
-                heightmap = GenerateHeightmap(size, seed, islandSize, mountainIntensity, erosionIterations, 
-                                            riverDensity, noiseScale, noiseOctaves);
+                heightmap = GenerateHeightmap(size, islandShape, seed, islandSize, mountainIntensity, erosionIterations, 
+                                            noiseScale, noiseOctaves, waterLevel, beachWidth,
+                                            coastlineRoughness, mountainCount, valleyDepth,
+                                            lakeCount, terrainType, persistence);
             }
 
             base.OnSetRenderInfo(newToken, dstArgs, srcArgs);
@@ -165,8 +285,11 @@ namespace ORMTerrainGeneratorEffect
         }
 
         // Generate complete heightmap
-        private double[,] GenerateHeightmap(int size, int seed, double islandSize, double mountainIntensity,
-                                           int erosionIterations, double riverDensity, double noiseScale, int noiseOctaves)
+        private double[,] GenerateHeightmap(int size, int islandShape, int seed, double islandSize, double mountainIntensity,
+                                           int erosionIterations, double noiseScale, int noiseOctaves,
+                                           double waterLevel, double beachWidth, double coastlineRoughness,
+                                           int mountainCount, double valleyDepth,
+                                           int lakeCount, int terrainType, double persistence)
         {
             double[,] hmap = new double[size, size];
             Random random = new Random(seed);
@@ -178,44 +301,57 @@ namespace ORMTerrainGeneratorEffect
                 {
                     double nx = (double)x / size * noiseScale;
                     double ny = (double)y / size * noiseScale;
-                    hmap[x, y] = PerlinNoise(nx, ny, 0.5, noiseOctaves, seed);
+                    hmap[x, y] = PerlinNoise(nx, ny, persistence, noiseOctaves, seed);
                 }
             }
 
-            // 2. Apply island shape
-            ApplyIslandShape(hmap, size, islandSize, seed);
+            // 2. Apply island shape (defines land/water boundaries)
+            ApplyIslandShape(hmap, size, islandShape, islandSize, seed, terrainType, coastlineRoughness, beachWidth);
 
-            // 3. Add mountains and valleys
-            AddMountainsAndValleys(hmap, size, mountainIntensity, noiseScale, noiseOctaves, seed);
-
-            // 4. Add rivers and lakes
-            if (riverDensity > 0)
+            // 3. Add mountains (large elevation features)
+            if (mountainCount > 0 || mountainIntensity > 0)
             {
-                AddRiversAndLakes(hmap, size, riverDensity, seed);
+                AddMountains(hmap, size, mountainIntensity, noiseScale, noiseOctaves, seed, mountainCount, persistence);
             }
 
-            // 5. Apply erosion for smooth transitions
+            // 4. Apply erosion first (smooths mountains and creates natural slopes)
             if (erosionIterations > 0)
             {
                 ApplyErosion(hmap, size, erosionIterations);
             }
 
-            // 6. Normalize heightmap
+            // 5. Add valleys (after erosion, so they stay visible)
+            if (valleyDepth > 0)
+            {
+                AddValleys(hmap, size, valleyDepth, noiseScale, noiseOctaves, seed, persistence);
+            }
+
+            // 6. Add lakes
+            if (lakeCount > 0)
+            {
+                AddLakes(hmap, size, lakeCount, seed);
+            }
+
+            // 8. Final normalization (preserves details with threshold)
             NormalizeHeightmap(hmap, size);
 
             return hmap;
         }
 
-        // Apply organic island shape with Perlin noise, Voronoi and Random Walk
-        private void ApplyIslandShape(double[,] hmap, int size, double islandSize, int seed)
+        // Apply island shape with different geometric forms
+        private void ApplyIslandShape(double[,] hmap, int size, int islandShape, double islandSize, int seed, int terrainType, double coastlineRoughness, double beachWidth)
         {
             Random random = new Random(seed + 1);
             int centerX = size / 2;
             int centerY = size / 2;
             double baseRadius = size * islandSize;
 
-            // Generate Voronoi cells for bays and peninsulas
-            List<(int x, int y, bool isBay)> voronoiPoints = GenerateVoronoiPoints(size, baseRadius, seed, 8);
+            // Generate Voronoi cells for bays and peninsulas (nur für Normal-Form)
+            List<(int x, int y, bool isBay)> voronoiPoints = new List<(int x, int y, bool isBay)>();
+            if (islandShape == (int)IslandShape.Normal)
+            {
+                voronoiPoints = GenerateVoronoiPoints(size, baseRadius, seed, 8);
+            }
 
             for (int y = 0; y < size; y++)
             {
@@ -227,37 +363,74 @@ namespace ORMTerrainGeneratorEffect
 
                     // Multi-scale Perlin noise for smooth organic coastline
                     double coastlineNoise = 0;
-                    coastlineNoise += PerlinNoise(x * 0.01, y * 0.01, 0.5, 3, seed + 10) * 0.4;
-                    coastlineNoise += PerlinNoise(x * 0.005, y * 0.005, 0.6, 2, seed + 11) * 0.3;
-                    coastlineNoise += PerlinNoise(x * 0.02, y * 0.02, 0.4, 2, seed + 12) * 0.3;
+                    coastlineNoise += PerlinNoise(x * 0.01, y * 0.01, 0.5, 3, seed + 10) * 0.4 * coastlineRoughness;
+                    coastlineNoise += PerlinNoise(x * 0.005, y * 0.005, 0.6, 2, seed + 11) * 0.3 * coastlineRoughness;
+                    coastlineNoise += PerlinNoise(x * 0.02, y * 0.02, 0.4, 2, seed + 12) * 0.3 * coastlineRoughness;
                     
-                    // Voronoi influence for bays and peninsulas
-                    double voronoiInfluence = GetVoronoiInfluence(x, y, voronoiPoints);
-                    
-                    // Combine influences for organic shape (removed random walk to avoid radial patterns)
-                    double effectiveRadius = baseRadius * (1.0 + coastlineNoise * 0.25 + voronoiInfluence);
+                    // Voronoi influence (nur für Normal-Form)
+                    double voronoiInfluence = 0;
+                    if (islandShape == (int)IslandShape.Normal)
+                    {
+                        voronoiInfluence = GetVoronoiInfluence(x, y, voronoiPoints);
+                    }
 
-                    // Island shape: falling edges
-                    if (distance > effectiveRadius)
+                    // Berechne Distanz zur Form-Grenze basierend auf gewählter Form
+                    double distanceToShape = CalculateDistanceToShape(x, y, centerX, centerY, size, baseRadius, islandShape, coastlineNoise, voronoiInfluence);
+                    
+                    // Für gefüllte Form: kein Wasser
+                    if (islandShape == (int)IslandShape.Filled)
+                    {
+                        // Komplette Füllung - nur leichte Variation
+                        double fillNoise = PerlinNoise(x * 0.005, y * 0.005, 0.5, 2, seed + 100);
+                        hmap[x, y] += 0.3 + fillNoise * 0.1;
+                    }
+                    else if (distanceToShape > 0) // Außerhalb der Form (Wasser)
                     {
                         // Water (deep) - smoother transition
-                        double waterDepth = (distance - effectiveRadius) / (size * 0.1);
+                        double waterDepth = distanceToShape / (size * 0.1);
                         hmap[x, y] = -0.8 - Math.Min(waterDepth * 0.5, 2.0);
                     }
-                    else
+                    else // Innerhalb der Form (Land)
                     {
-                        // Island (rises toward center)
-                        double factor = 1.0 - (distance / effectiveRadius);
-                        // Use power function for more natural elevation distribution
-                        factor = Math.Pow(factor, 1.8);
-                        hmap[x, y] += factor * 0.7;
-
-                        // Add subtle coastal variation using 2D noise (not angle-based)
-                        if (distance > effectiveRadius * 0.75)
+                        // Island (rises toward center) - distanceToShape ist negativ, also invertieren
+                        double normalizedDistance = Math.Abs(distanceToShape);
+                        double maxDistance = GetMaxDistanceInShape(islandShape, size, baseRadius);
+                        double factor = 1.0 - (normalizedDistance / maxDistance);
+                        factor = Math.Max(0, Math.Min(1, factor));
+                        
+                        // Terrain type adjustment
+                        double heightFactor = 0.7;
+                        double powerFactor = 1.8;
+                        if (terrainType == 1) // Mountainous: steeper
                         {
+                            powerFactor = 1.3;
+                            heightFactor = 0.9;
+                        }
+                        else if (terrainType == 2) // Flat: gentler
+                        {
+                            powerFactor = 2.5;
+                            heightFactor = 0.5;
+                        }
+                        else if (terrainType == 3) // Archipelago: multiple islands
+                        {
+                            powerFactor = 1.5;
+                            heightFactor = 0.6;
+                            // Add archipelago pattern
+                            double archipelagoNoise = PerlinNoise(x * 0.003, y * 0.003, 0.5, 3, seed + 50);
+                            if (archipelagoNoise < 0.2) heightFactor *= 0.3; // Small islands
+                        }
+                        
+                        factor = Math.Pow(factor, powerFactor);
+                        hmap[x, y] += factor * heightFactor;
+
+                        // Add beach (use beachWidth parameter) - only modify if in beach zone
+                        if (beachWidth > 0 && distanceToShape > -50)
+                        {
+                            double beachFactor = (50 + distanceToShape) / 50.0;
+                            beachFactor = Math.Max(0, Math.Min(1, beachFactor));
                             double coastalVariation = PerlinNoise(x * 0.05, y * 0.05, 0.6, 2, seed + 20);
-                            double blendFactor = (distance - effectiveRadius * 0.75) / (effectiveRadius * 0.25);
-                            hmap[x, y] += coastalVariation * 0.1 * (1.0 - blendFactor);
+                            // Blend instead of replace
+                            hmap[x, y] = hmap[x, y] * (1.0 - beachFactor * 0.7 * beachWidth) + coastalVariation * 0.05 * beachFactor * beachWidth;
                         }
                     }
                 }
@@ -265,6 +438,43 @@ namespace ORMTerrainGeneratorEffect
 
             // Apply smoothing pass specifically for coastal regions to remove artifacts
             SmoothCoastalRegions(hmap, size, baseRadius);
+        }
+
+        // Calculate distance to shape boundary (negative = inside, positive = outside)
+        private double CalculateDistanceToShape(int x, int y, int centerX, int centerY, int size, double baseRadius, int islandShape, double coastlineNoise, double voronoiInfluence)
+        {
+            double dx = x - centerX;
+            double dy = y - centerY;
+            double absDx = Math.Abs(dx);
+            double absDy = Math.Abs(dy);
+            
+            switch ((IslandShape)islandShape)
+            {
+                case IslandShape.Normal: // Organische runde Form
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
+                    double effectiveRadius = baseRadius * (1.0 + coastlineNoise * 0.25 + voronoiInfluence);
+                    return distance - effectiveRadius;
+                
+                case IslandShape.Filled: // Gefüllt
+                    return -1000; // Immer innerhalb
+                
+                default:
+                    return 0;
+            }
+        }
+
+        // Get maximum distance within a shape (for normalization)
+        private double GetMaxDistanceInShape(int islandShape, int size, double baseRadius)
+        {
+            switch ((IslandShape)islandShape)
+            {
+                case IslandShape.Normal:
+                    return baseRadius;
+                case IslandShape.Filled:
+                    return size / 2;
+                default:
+                    return baseRadius;
+            }
         }
 
         // Smooth coastal regions to remove radial artifacts
@@ -392,14 +602,45 @@ namespace ORMTerrainGeneratorEffect
             return nearestIsBay ? -influence * 0.25 : influence * 0.2;
         }
 
-        // Add mountains and valleys with multi-octave noise
-        private void AddMountainsAndValleys(double[,] hmap, int size, double intensity, 
-                                           double noiseScale, int octaves, int seed)
+        // Add mountains with multi-octave noise
+        private void AddMountains(double[,] hmap, int size, double intensity, 
+                                 double noiseScale, int octaves, int seed, int mountainCount, double persistence)
         {
+            Random random = new Random(seed + 300);
+            
+            // Add specific mountain peaks
+            for (int i = 0; i < mountainCount; i++)
+            {
+                int mx = random.Next(size / 4, size * 3 / 4);
+                int my = random.Next(size / 4, size * 3 / 4);
+                double mountainRadius = size * (0.1 + random.NextDouble() * 0.15);
+                double mountainHeight = 0.4 + random.NextDouble() * 0.3;
+                
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        if (hmap[x, y] > 0)
+                        {
+                            double dx = x - mx;
+                            double dy = y - my;
+                            double dist = Math.Sqrt(dx * dx + dy * dy);
+                            if (dist < mountainRadius)
+                            {
+                                double factor = 1.0 - (dist / mountainRadius);
+                                factor = Math.Pow(factor, 1.5);
+                                hmap[x, y] += factor * mountainHeight * intensity;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Add general mountainous terrain with noise
             for (int octave = 0; octave < octaves; octave++)
             {
                 double frequency = Math.Pow(2, octave);
-                double amplitude = Math.Pow(0.5, octave);
+                double amplitude = Math.Pow(persistence, octave);
 
                 for (int y = 0; y < size; y++)
                 {
@@ -409,98 +650,65 @@ namespace ORMTerrainGeneratorEffect
                         {
                             double nx = (double)x / size * noiseScale * 2 * frequency;
                             double ny = (double)y / size * noiseScale * 2 * frequency;
-                            double noise = PerlinNoise(nx, ny, 0.8, 4, seed + octave);
-                            hmap[x, y] += noise * amplitude * intensity * 0.4;
+                            double noise = PerlinNoise(nx, ny, persistence, 4, seed + octave);
+                            
+                            // Only positive elevation for mountains
+                            if (noise > 0)
+                            {
+                                hmap[x, y] += noise * amplitude * intensity * 0.4;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Add rivers and lakes
-        private void AddRiversAndLakes(double[,] hmap, int size, double density, int seed)
+        // Add valleys with multi-octave noise
+        private void AddValleys(double[,] hmap, int size, double valleyDepth, 
+                               double noiseScale, int octaves, int seed, double persistence)
         {
-            Random random = new Random(seed + 100);
-            int numRivers = (int)(density * 10);
-
-            for (int i = 0; i < numRivers; i++)
+            // Add valleys using noise (only negative contributions)
+            for (int octave = 0; octave < octaves; octave++)
             {
-                // Random starting point on land
-                int startX = random.Next(size);
-                int startY = random.Next(size);
+                double frequency = Math.Pow(2, octave);
+                double amplitude = Math.Pow(persistence, octave);
 
-                if (hmap[startX, startY] > 0.2)
+                for (int y = 0; y < size; y++)
                 {
-                    CarveRiver(hmap, size, startX, startY, random);
+                    for (int x = 0; x < size; x++)
+                    {
+                        if (hmap[x, y] > 0.1) // Only on higher land (not beaches)
+                        {
+                            double nx = (double)x / size * noiseScale * 2 * frequency;
+                            double ny = (double)y / size * noiseScale * 2 * frequency;
+                            double noise = PerlinNoise(nx, ny, persistence, 4, seed + octave + 1000);
+                            
+                            // Only negative contribution for valleys
+                            if (noise < 0)
+                            {
+                                hmap[x, y] += noise * amplitude * valleyDepth * 0.6;
+                            }
+                        }
+                    }
                 }
             }
+        }
 
-            // Add some lakes
-            int numLakes = (int)(density * 5);
-            for (int i = 0; i < numLakes; i++)
+        // Add rivers
+        // Add lakes
+        private void AddLakes(double[,] hmap, int size, int lakeCount, int seed)
+        {
+            Random random = new Random(seed + 200);
+
+            for (int i = 0; i < lakeCount; i++)
             {
                 int lakeX = random.Next(size);
                 int lakeY = random.Next(size);
 
                 if (hmap[lakeX, lakeY] > 0.1 && hmap[lakeX, lakeY] < 0.4)
                 {
-                    CreateLake(hmap, size, lakeX, lakeY, random.Next(5, 15));
-                }
-            }
-        }
-
-        // Carve a river following the terrain
-        private void CarveRiver(double[,] hmap, int size, int startX, int startY, Random random)
-        {
-            int x = startX;
-            int y = startY;
-            int maxSteps = size;
-            double riverDepth = 0.05;
-
-            for (int step = 0; step < maxSteps; step++)
-            {
-                if (x < 1 || x >= size - 1 || y < 1 || y >= size - 1) break;
-                if (hmap[x, y] <= 0) break; // Reached water
-
-                // Lower current position
-                hmap[x, y] = Math.Max(0.02, hmap[x, y] - riverDepth);
-
-                // Find lowest neighbor
-                int bestX = x;
-                int bestY = y;
-                double lowestHeight = hmap[x, y];
-
-                for (int dy = -1; dy <= 1; dy++)
-                {
-                    for (int dx = -1; dx <= 1; dx++)
-                    {
-                        if (dx == 0 && dy == 0) continue;
-                        int nx = x + dx;
-                        int ny = y + dy;
-
-                        if (nx >= 0 && nx < size && ny >= 0 && ny < size)
-                        {
-                            if (hmap[nx, ny] < lowestHeight)
-                            {
-                                lowestHeight = hmap[nx, ny];
-                                bestX = nx;
-                                bestY = ny;
-                            }
-                        }
-                    }
-                }
-
-                // Move to lowest point or random direction
-                if (bestX == x && bestY == y)
-                {
-                    // No lower point found, move randomly
-                    x += random.Next(-1, 2);
-                    y += random.Next(-1, 2);
-                }
-                else
-                {
-                    x = bestX;
-                    y = bestY;
+                    // Larger lakes (10-25 radius instead of 5-15)
+                    CreateLake(hmap, size, lakeX, lakeY, random.Next(10, 25));
                 }
             }
         }
@@ -508,7 +716,7 @@ namespace ORMTerrainGeneratorEffect
         // Create a lake
         private void CreateLake(double[,] hmap, int size, int centerX, int centerY, int radius)
         {
-            double lakeHeight = 0.02;
+            double lakeHeight = 0.01; // Even lower (was 0.02)
 
             for (int y = Math.Max(0, centerY - radius); y < Math.Min(size, centerY + radius); y++)
             {
@@ -521,7 +729,8 @@ namespace ORMTerrainGeneratorEffect
                     if (distance < radius && hmap[x, y] > 0)
                     {
                         double factor = 1.0 - (distance / radius);
-                        hmap[x, y] = Math.Max(lakeHeight, hmap[x, y] * (1.0 - factor * 0.8));
+                        // Deeper lakes (factor 0.9 instead of 0.8)
+                        hmap[x, y] = Math.Max(lakeHeight, hmap[x, y] * (1.0 - factor * 0.9));
                     }
                 }
             }
@@ -538,16 +747,11 @@ namespace ORMTerrainGeneratorEffect
                 {
                     for (int x = 1; x < size - 1; x++)
                     {
-                        if (hmap[x, y] > 0) // Only erode land
-                        {
-                            double avg = (hmap[x - 1, y] + hmap[x + 1, y] + 
-                                        hmap[x, y - 1] + hmap[x, y + 1]) / 4.0;
-                            newHeightmap[x, y] = hmap[x, y] * 0.7 + avg * 0.3;
-                        }
-                        else
-                        {
-                            newHeightmap[x, y] = hmap[x, y];
-                        }
+                        // Apply erosion to all terrain (not just land)
+                        double avg = (hmap[x - 1, y] + hmap[x + 1, y] + 
+                                    hmap[x, y - 1] + hmap[x, y + 1]) / 4.0;
+                        // Stronger erosion effect (0.5 instead of 0.7)
+                        newHeightmap[x, y] = hmap[x, y] * 0.5 + avg * 0.5;
                     }
                 }
 
@@ -578,9 +782,9 @@ namespace ORMTerrainGeneratorEffect
                 }
             }
 
-            // Normalize to -1 to 1 range
+            // Only normalize if range is extreme (preserve details)
             double range = max - min;
-            if (range > 0)
+            if (range > 3.0) // Only normalize if range is very large
             {
                 for (int y = 0; y < size; y++)
                 {
