@@ -21,7 +21,7 @@ Eine Heightmap (Höhenkarte) ist ein schwarz-weißes Bild, bei dem:
   - Sehr groß: 2048 × 2048, 3072 × 3072 oder 4096 × 4096 Pixel
   - **Hinweis**: Jede Größe in 256er-Schritten ist möglich (256, 512, 768, 1024, 1280, 1536...)
 
-Wichtig im Prompt der OpenSim Konsole steht der Regionsname sollte dort Root stehen gilt alles was gemacht wird für alle Regionen.
+<span style="color: red;">Wichtig im Prompt der OpenSim Konsole steht der Regionsname sollte dort Root stehen gilt alles was gemacht wird für alle Regionen.</span>
 
 ---
 
