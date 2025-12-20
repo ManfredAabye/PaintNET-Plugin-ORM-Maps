@@ -5,9 +5,10 @@ Ein Paint.NET 5.x Plugin zur Generierung prozeduraler Terrain-Heightmaps mit Ins
 ## Features
 
 - **Prozedurale Terrain-Generierung** mit Perlin Noise
+- **Inselformen-Auswahl** (Normal/Rund oder Gefüllt)
 - **Insel-Generator** mit anpassbarer Größe
 - **Berg- und Tal-Systeme** mit konfigurierbarer Intensität
-- **Flüsse und Seen** die dem Terrain folgen
+- **Seen** mit natürlicher Platzierung
 - **Erosions-Simulation** für realistische, sanfte Übergänge
 - **Deterministische Generierung** durch Seed-Kontrolle
 - **Heightmap-optimierte Farbgebung** in Graustufen
@@ -15,7 +16,7 @@ Ein Paint.NET 5.x Plugin zur Generierung prozeduraler Terrain-Heightmaps mit Ins
 ## Farbschema (Heightmap)
 
 - **Meer**: `#141414` (RGB 20, 20, 20)
-- **Flüsse/Seen**: `#272727` (RGB 39, 39, 39)
+- **Seen**: `#272727` (RGB 39, 39, 39)
 - **Täler**: `#292929` (RGB 41, 41, 41)
 - **Berge**: `#3C3C3C` (RGB 60, 60, 60)
 - **Sanfte Übergänge** zwischen allen Höhenstufen
@@ -49,13 +50,21 @@ dotnet build -c Release
 1. Öffne Paint.NET
 2. Gehe zu **Effekte → ORM → Terrain Heightmap Generator**
 3. Passe die Parameter an:
+   - **Inselform**: Normal (Rund) oder Gefüllt (kein Wasser)
    - **Zufalls-Seed**: Kontrolle über die Generierung (0 = zufällig)
    - **Inselgröße**: Größe der generierten Insel (0.2 - 0.8)
    - **Berg-Intensität**: Stärke der Bergformationen (0.0 - 1.0)
    - **Erosions-Iterationen**: Glättung der Übergänge (0 - 10)
-   - **Fluss-Dichte**: Anzahl von Flüssen und Seen (0.0 - 1.0)
    - **Rausch-Skalierung**: Detailgrad der Terrain-Struktur (1.0 - 10.0)
    - **Rausch-Oktaven**: Komplexität des Perlin Noise (1 - 8)
+   - **Wasser-Level**: Höhe des Wasserspiegels (0.0 - 100.0)
+   - **Strandbreite**: Breite des Strandbereichs (0.0 - 0.3)
+   - **Küstenrauheit**: Rauheit der Küstenlinie (0.0 - 1.0)
+   - **Berg-Anzahl**: Anzahl der Bergkuppen (0 - 20)
+   - **Taltiefe**: Tiefe der Täler zwischen Bergen (0.0 - 1.0)
+   - **Seen-Anzahl**: Anzahl der Seen auf der Insel (0 - 20)
+   - **Terrain-Typ**: 0=Organisch, 1=Gebirgig, 2=Flach, 3=Archipel
+   - **Persistence**: Einfluss höherer Oktaven auf das Rauschen (0.2 - 0.9)
 
 ## Technische Details
 
@@ -79,19 +88,20 @@ Mehrstufiger Perlin Noise für natürliche Terrain-Variation:
 
 #### 2. Insel-Formung
 
-Radial-Gradient mit zufälligen Küstenlinien-Variationen:
+Verschiedene Inselformen mit konfigurierbaren Küstenlinien:
 
-- Kreisförmige Basis-Form
+- **Normal (Rund)**: Organische runde Form mit variierter Küstenlinie
+- **Gefüllt**: Komplett gefüllte Fläche ohne Wasser
 - Abfallende Ränder zum Meer
-- Variierte Küstenlinie
+- Küstenrauheit und Strandbreite konfigurierbar
 
-#### 3. Fluss-Generierung
+#### 3. Seen-Generierung
 
-Flüsse folgen dem Terrain bergab:
+Seen werden natürlich in niedriger gelegenen Bereichen platziert:
 
-- Starten auf erhöhten Flächen
-- Folgen dem steilsten Gefälle
-- Enden im Meer oder bilden Seen
+- Konfigurierbare Anzahl (0-20)
+- Natürliche Platzierung in Tälern
+- Variable Größe
 
 #### 4. Erosions-Simulation
 
@@ -152,12 +162,18 @@ GitHub: <https://github.com/ManfredAabye>
 
 ## Changelog
 
+### Version 1.1.0 (2025-12-20)
+
+- **Neu**: Inselformen-Auswahl (Normal/Gefüllt)
+- **Entfernt**: Fluss-Generierung (Flussbreite, Flussdichte)
+- **Verbessert**: Erweiterte Parameter-Kontrolle
+- Gesamt 15 konfigurierbare Parameter
+
 ### Version 1.0.0 (2025-12-19)
 
 - Initiales Release
 - Perlin Noise Terrain-Generierung
 - Insel-Generator
-- Fluss- und Seen-System
+- Seen-System
 - Erosions-Simulation
 - Heightmap-optimierte Farbgebung
-- Konfigurierbares UI mit 7 Parametern
