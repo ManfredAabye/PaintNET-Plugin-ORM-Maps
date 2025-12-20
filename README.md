@@ -5,6 +5,7 @@ Eine umfassende Plugin-Suite für Paint.NET 5.x zur Erstellung von PBR (Physical
 ![Paint.NET Version](https://img.shields.io/badge/Paint.NET-5.x-blue)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
+<https://raw.githubusercontent.com/ManfredAabye/PaintnetORM/main/PaintnetORMLogo2.png>
 
 ## 📦 Enthaltene ORM-Plugins
 
