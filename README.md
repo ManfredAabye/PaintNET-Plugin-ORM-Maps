@@ -1,16 +1,57 @@
 # PaintnetORM - PBR Material Creation Suite for Paint.NET
 
-Eine umfassende Plugin-Suite für Paint.NET 5.x.x zur Erstellung von PBR (Physically Based Rendering) Materialien, insbesondere ORM (Occlusion, Roughness, Metallic) Maps und verwandten Texturen.
+Eine umfassende Plugin-Suite für Paint.NET 5.x zur Erstellung von PBR (Physically Based Rendering) Materialien, insbesondere ORM (Occlusion, Roughness, Metallic) Maps und verwandten Texturen für Game Development und 3D-Modellierung.
 
 ![Paint.NET Version](https://img.shields.io/badge/Paint.NET-5.x-blue)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## 📦 Enthaltene Plugins
+## 📦 Enthaltene ORM-Plugins
 
-### ORM-Generator Suite
+### Terrain & Heightmap Tools
 
-#### 🗺️ ORMEmissive - Emissive Map Generator
+#### 🏔️ ORMTerrainGenerator - Terrain Heightmap Generator
+
+**Version:** 1.0.0.0  
+**Kategorie:** ORM → Terrain Heightmap Generator
+
+Professioneller prozeduraler Terrain-Generator zur Erstellung realistischer Heightmaps mit Inseln, Bergen, Tälern, Flüssen und Seen.
+
+**Features:**
+
+- **Prozedurale Generierung:**
+  - Multi-Oktaven Perlin Noise
+  - Deterministische Seed-Kontrolle
+  - Anpassbare Terrain-Komplexität
+- **Terrain-Elemente:**
+  - Inseln mit variierten Küstenlinien
+  - Berg- und Tal-Systeme
+  - Flüsse mit Gefälle-Verfolgung
+  - Seen in natürlichen Senken
+- **Erosions-Simulation:**
+  - Nachbarschafts-basierte Glättung
+  - Konfigurierbare Iterations-Stufen
+  - Realistische Übergänge
+- **Heightmap-Optimierung:**
+  - Graustufen-Export (20-60 RGB)
+  - Weiche Höhenstufen
+  - Unreal Engine kompatibel
+
+**Parameter:**
+
+- Zufalls-Seed (0 = zufällig)
+- Inselgröße (0.2 - 0.8)
+- Berg-Intensität (0.0 - 1.0)
+- Erosions-Iterationen (0 - 10)
+- Fluss-Dichte (0.0 - 1.0)
+- Rausch-Skalierung (1.0 - 10.0)
+- Rausch-Oktaven (1 - 8)
+
+**Verwendung:** `Effekte → ORM → Terrain Heightmap Generator`
+
+---
+
+#### 🏔️ ORMHeightmap - Heightmap Generator
 
 **Version:** 1.0.0.0  
 **Kategorie:** ORM → Emissive Map Generator
@@ -33,7 +74,7 @@ Erzeugt Emissive Maps (selbstleuchtende Bereiche) aus Bildern.
 
 ---
 
-#### 🏔️ ORMHeightmap - Heightmap Generator
+#### � ORMNormalmap - Normal Map Generator
 
 **Version:** 1.0.0.0  
 **Kategorie:** ORM → Heightmap Generator
@@ -63,7 +104,39 @@ Professioneller Heightmap-Generator mit umfangreichen Pinsel-Tools und Automatik
 
 ---
 
-#### 🌐 ORMNormalmap - Normal Map Generator
+### Material & Map Tools
+
+#### 🗺️ ORMGenerator - ORM Map Generator
+
+**Version:** 1.0.0.0  
+**Kategorie:** ORM → ORM Map Generator
+
+Generiert komplette ORM (Occlusion, Roughness, Metallic) Maps aus Bildern mit Material-Presets für verschiedene Oberflächen.
+
+**Features:**
+
+- **Material Presets:**
+  - Metal, Plastic, Wood, Stone
+  - Concrete, Glass, Fabric, Leather
+  - Rubber, Ceramic, Paint
+  - Custom-Einstellungen
+- **Kanal-Kontrolle:**
+  - Roughness aus verschiedenen Kanälen
+  - Metallic aus verschiedenen Kanälen
+  - Ambient Occlusion aus verschiedenen Kanälen
+- **Auto-Erkennung:**
+  - Automatische Material-Analyse
+  - Intelligente Kanal-Zuweisung
+- **Ausgabe-Modi:**
+  - ORM Combined
+  - Separate Channels
+  - Preview Mode
+
+**Verwendung:** `Effekte → Render → ORM Map Generator`
+
+---
+
+#### 🗺️ ORMEmissive - Emissive Map Generator
 
 **Version:** 1.0.0.0  
 **Kategorie:** ORM → Normal Map Generator
@@ -81,6 +154,8 @@ Konvertiert Heightmaps oder Graustufenbilder in Normal Maps für 3D-Rendering.
 **Verwendung:** `Effekte → ORM → Normal Map Generator`
 
 ---
+
+### Export & Vector Tools
 
 #### 📐 ORMForm - XAML Shape Exporter
 
@@ -132,7 +207,13 @@ Konvertiert hervorgehobene Bereiche von Bildern in SVG-Vektorgrafiken.
 
 ## 🚀 Installation
 
-### Automatische Installation
+### Voraussetzungen
+
+- Paint.NET 5.x oder höher
+- .NET 9.0 Runtime
+- Windows 10/11 (x64 oder ARM64)
+
+### Automatische Installation aller ORM-Plugins
 
 1. Schließe Paint.NET
 2. Kopiere die DLL-Dateien nach `C:\Program Files\paint.net\Effects\`
@@ -161,7 +242,7 @@ Copy-Item "ORMSVG\bin\Release\ORMSVG.dll" "C:\Program Files\paint.net\Effects\"
 
 ## 🛠️ Build-Anleitung
 
-### Voraussetzungen
+### Build-Voraussetzungen
 
 - .NET 9.0 SDK
 - Paint.NET 5.x Installation
